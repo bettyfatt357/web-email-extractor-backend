@@ -1,0 +1,205 @@
+PUBLIC APPLICATION FLOW - QUICK REFERENCE
+============================================
+
+CURRENT STATE:
+- Placeholder landing page at /
+- Dashboard at /dashboard (no auth guard - anyone can access)
+- Admin at /admin (no auth guard)
+- API key authentication system in place (x-api-key header)
+- No session/cookie auth
+- No login/register pages
+
+---
+
+PROPOSED ARCHITECTURE:
+
+Route Structure:
+  /                          → Landing page (new)
+  /auth/login               → Login form (new)
+  /auth/register            → Register form (new)
+  /auth/forgot-password     → Forgot password form (new)
+  /auth/reset-password      → Reset password form (new)
+  /dashboard/*              → Protected dashboard (requires session)
+  /admin/*                  → Protected admin (requires session + admin role)
+
+Authentication Flow:
+  1. User registers with email/password
+  2. Server stores hashed password in database
+  3. User logs in with email/password
+  4. Server validates and creates session token
+  5. Session stored as httpOnly cookie (secure, can't be stolen via JS)
+  6. Each request automatically sends cookie
+  7. Server validates session on protected routes
+  8. If invalid → redirect to login
+  9. User can logout (deletes session)
+
+---
+
+FILES TO CREATE:
+
+Frontend (Pages):
+  app/page.tsx                              - Landing page (replaces placeholder)
+  app/(public)/layout.tsx                   - Public layout (no sidebar)
+  app/(public)/auth/layout.tsx              - Auth forms layout
+  app/(public)/auth/login/page.tsx          - Login page
+  app/(public)/auth/register/page.tsx       - Register page
+  app/(public)/auth/forgot-password/page.tsx - Forgot password
+  app/(public)/auth/reset-password/page.tsx  - Reset password
+
+Backend (API):
+  app/api/auth/register/route.ts            - Register endpoint (POST)
+  app/api/auth/login/route.ts               - Login endpoint (POST)
+  app/api/auth/logout/route.ts              - Logout endpoint (POST)
+  app/api/auth/forgot-password/route.ts     - Send reset email (POST)
+  app/api/auth/reset-password/route.ts      - Reset with token (POST)
+
+Utilities:
+  lib/auth/session.ts                       - Session management
+  lib/auth/password.ts                      - Password hashing/verify
+  lib/auth/email.ts                         - Email sending utilities
+  lib/auth/session-middleware.ts            - Session validation middleware
+
+Database (NEW):
+  users table                               - Store user accounts
+  sessions table                            - Store session tokens
+  password_reset_tokens table               - Store reset tokens
+  email_verification_tokens table           - Store verification tokens
+
+---
+
+FILES TO MODIFY:
+
+  app/dashboard/layout.tsx                  - Add session guard + logout button
+  app/admin/layout.tsx                      - Add session guard + admin check
+  app/layout.tsx                            - Update metadata for new landing page
+
+---
+
+RECOMMENDED DECISIONS:
+
+1. Database:
+   - Recommended: Supabase (has auth built-in) or Neon (PostgreSQL)
+   - Action: Set up database with provided schema
+
+2. Email Service:
+   - Recommended: Resend (modern, Next.js friendly)
+   - Alternative: SendGrid, Mailgun
+   - Action: Set up email service account
+
+3. Session Duration:
+   - Recommended: 24 hours
+   - Option: Remember me for 30 days
+
+4. Password Requirements:
+   - Recommended: Min 8 chars, must have upper+lower+number+symbol
+
+5. Rate Limiting:
+   - Login: 5 failures in 15 mins
+   - Register: 3 per IP in 1 hour
+   - Password reset: 5 per email in 1 hour
+
+---
+
+BACKWARD COMPATIBILITY:
+
+- Current API key system (x-api-key header) UNCHANGED
+- Existing /api/search endpoint UNCHANGED
+- Can coexist: API users keep using API keys, web users use session cookies
+- Future: Can optionally migrate to unified auth system
+
+---
+
+SECURITY MEASURES:
+
+✓ Passwords hashed with bcrypt (not stored plaintext)
+✓ httpOnly cookies (can't be stolen via JavaScript)
+✓ Secure flag (HTTPS only)
+✓ SameSite=Strict (CSRF protection)
+✓ Session expiry (24 hours default)
+✓ Password reset tokens expire (1 hour)
+✓ Rate limiting on auth endpoints
+✓ Constant-time password comparison (no timing attacks)
+
+---
+
+PAGES OUTLINE:
+
+Landing Page (/):
+  - Hero section
+  - Features overview
+  - Pricing info
+  - "Get Started" button → /auth/register
+  - "Sign In" link → /auth/login
+
+Login Page (/auth/login):
+  - Email field
+  - Password field
+  - "Sign In" button
+  - "Forgot Password?" link
+  - "Don't have account?" → Register link
+
+Register Page (/auth/register):
+  - Full Name field
+  - Email field
+  - Password field (with strength indicator)
+  - Confirm Password field
+  - Terms checkbox
+  - "Sign Up" button
+  - "Already have account?" → Login link
+
+Forgot Password (/auth/forgot-password):
+  - Email field
+  - "Send Reset Link" button
+  - Shows: "Check your email"
+
+Reset Password (/auth/reset-password?token=xyz):
+  - New password field
+  - Confirm password field
+  - "Reset Password" button
+  - Shows success/error messages
+
+---
+
+IMPLEMENTATION PHASES:
+
+Phase A (1-2 hours):
+  - Set up database (users, sessions tables)
+  - Create password hashing utilities
+  - Create session management utilities
+
+Phase B (2-3 hours):
+  - Implement auth API endpoints
+  - Add session middleware
+  - Error handling
+
+Phase C (2-3 hours):
+  - Create landing page
+  - Create login/register/password pages
+  - Form validation and styling
+
+Phase D (1-2 hours):
+  - Add session guard to dashboard/admin layouts
+  - Add logout button to navigation
+  - Update redirects
+
+Phase E (1 hour):
+  - Security testing
+  - Rate limiting
+  - Production hardening
+
+Total: ~8-12 hours
+
+---
+
+NEXT STEPS:
+
+1. Review this plan
+2. Approve architecture decisions
+3. Choose database (Supabase/Neon)
+4. Choose email service (Resend/SendGrid)
+5. Approve design direction for pages
+6. Begin Phase A implementation
+
+---
+
+READY FOR APPROVAL ✓

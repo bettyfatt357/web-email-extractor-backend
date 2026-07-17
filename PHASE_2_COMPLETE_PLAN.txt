@@ -1,0 +1,600 @@
+═════════════════════════════════════════════════════════════════════════════
+                    PHASE 2 COMPLETE IMPLEMENTATION PLAN
+           Business Discovery Search Engine with Evidence Intelligence
+═════════════════════════════════════════════════════════════════════════════
+
+STATUS: Architecture Complete - Ready for Approval & Implementation
+
+───────────────────────────────────────────────────────────────────────────────
+OVERVIEW
+───────────────────────────────────────────────────────────────────────────────
+
+Phase 2 transforms the search engine from:
+  BEFORE: "Find URLs that might have business emails"
+  AFTER: "Discover businesses with complete intelligence: who, where, why, how"
+
+Complete workflow:
+  1. Query Generation - Optimize searches for keywords + location + patterns
+  2. Google PSE Search - Find relevant pages
+  3. Result Tracking - Record which query/keyword produced each result
+  4. Page Crawling - Extract page content
+  5. Pattern Detection - Find contact/about/team pages
+  6. Company Intelligence - Extract company info + emails with evidence
+  7. Results Grouped - Organize by keyword, pattern, location with reasoning
+
+───────────────────────────────────────────────────────────────────────────────
+1. INPUT → OUTPUT TRANSFORMATION
+───────────────────────────────────────────────────────────────────────────────
+
+INPUT:
+  Keywords: ["hedge fund manager", "asset management"]
+  Patterns: ["@company.com", "@startup.co"]
+  Location: "Manhattan, New York"
+  Industry: "finance"
+  Search Depth: 2 pages per keyword
+
+PROCESS:
+  → Generate 4-6 optimized queries per keyword
+  → Execute Google searches
+  → Track which query found each page
+  → Crawl pages, detect patterns
+  → Extract company info + emails
+  → Record evidence for each discovery
+
+OUTPUT:
+  ✓ 28 businesses discovered
+  ✓ 42 emails extracted
+  ✓ Each with:
+    - Company name
+    - Website URL
+    - Contact page found
+    - Emails (with source page + context)
+    - Why matched (keyword + pattern + location)
+    - Confidence score
+    - Evidence trail
+
+EXAMPLE RESULT:
+  Company: BlackRock
+  Website: https://blackrock.com
+  Emails: 3 (info@, careers@, press@)
+  Contact Page: /contact
+  Matched Keyword: "asset management"
+  Pattern Match: contact page detected
+  Search Query: "asset management firms new york contact"
+  Location Match: New York headquarters detected
+  Confidence: 0.95
+  Evidence: "Contact page URL found for company matched by keyword in search"
+
+───────────────────────────────────────────────────────────────────────────────
+2. FILES TO CREATE (4 NEW)
+───────────────────────────────────────────────────────────────────────────────
+
+[NEW 1] lib/search/query-generator.ts (150-200 lines)
+  Purpose: Generate optimized search queries
+  
+  Functions:
+    ✓ generateSearchQueries(keywords, location, patterns, industry)
+    ✓ Create keyword search: "hedge fund manager manhattan"
+    ✓ Create pattern search: "site:company.com hedge fund"
+    ✓ Create location search: "finance manhattan companies"
+  
+  Output:
+    - Each query tracked
+    - Matched keyword/pattern recorded
+    - Search position tracked
+    
+  Why: Maximize coverage, track which query found each result
+
+
+[NEW 2] lib/search/evidence-tracker.ts (100-150 lines)
+  Purpose: Track discovery evidence and reasons
+  
+  Functions:
+    ✓ trackDiscovery(result, keyword, pattern, location)
+    ✓ Calculate confidence score
+    ✓ Generate human-readable reason
+    ✓ Link query to result
+  
+  Output:
+    - Why did this match? (keyword + pattern + location)
+    - Confidence score (0.0 - 1.0)
+    - Search query that found it
+    - Matched keyword
+    - Search position
+    
+  Why: Create audit trail, show reasoning to user
+
+
+[NEW 3] lib/search/pattern-detector.ts (150-200 lines)
+  Purpose: Analyze crawled pages for patterns
+  
+  Functions:
+    ✓ detectPatterns(html, url, targetPatterns)
+    ✓ Identify contact pages (/contact in URL + "contact" in title)
+    ✓ Identify about pages (/about, team info)
+    ✓ Identify services pages
+    ✓ Confidence scoring per pattern
+  
+  Output:
+    - Found patterns (contact, about, team, services)
+    - Evidence for each (URL path, title match, content match)
+    - Confidence per pattern
+    
+  Why: Know what type of page, helps categorize businesses
+
+
+[NEW 4] lib/search/company-intelligence.ts (100-150 lines)
+  Purpose: Extract company intelligence from pages
+  
+  Functions:
+    ✓ extractCompanyIntelligence(url, html, emailsExtracted, context)
+    ✓ Detect company name (from title, headers, branding)
+    ✓ Link emails to sources (which page, which pattern found)
+    ✓ Extract description/summary
+    ✓ Calculate confidence
+  
+  Output:
+    - Company name
+    - Website URL
+    - Contact pages found
+    - Emails with source URL + context
+    - Description/summary
+    - Confidence score
+    
+  Why: Structured company data with evidence
+
+
+───────────────────────────────────────────────────────────────────────────────
+3. FILES TO MODIFY (6 EXISTING)
+───────────────────────────────────────────────────────────────────────────────
+
+[MODIFY 1] app/api/search/route.ts (30-40 lines)
+  Changes:
+    ✓ Line 28-35: Extract all new fields
+      - keywords[], patterns[], location
+      - industry, cseId, searchDepth, delayMs
+      - capturePageContent, detectPatterns
+    
+    ✓ Line 46-52: Auto-detect mode
+      - if query present → simple mode
+      - if keywords present → advanced mode
+    
+    ✓ Line 55-70: Pass all metadata to search service
+      - New context object with all parameters
+    
+    ✓ Response formatting
+      - Add discoveryIntelligence object
+      - Group results by keyword/pattern/location
+  
+  Impact: MEDIUM (additive, backward compatible)
+
+
+[MODIFY 2] lib/search/search-service.ts (80-100 lines)
+  Changes:
+    ✓ New performAdvancedDiscoverySearch() function
+      - Takes keywords, location, patterns, industry
+      - Calls query generator
+      - For each query:
+        - Google search
+        - Track which query/keyword
+        - Filter URLs
+        - Add to queue with metadata
+      - Sleep between keywords
+      - Group results
+    
+    ✓ Modify performSearch() 
+      - Route to simple or advanced
+      - Pass metadata through
+    
+    ✓ Update response building
+      - Include discovery intelligence
+      - Group by keyword/pattern/location
+  
+  Impact: MEDIUM (new function + modifications)
+
+
+[MODIFY 3] lib/queue/types.ts (40-50 lines)
+  Changes:
+    ✓ Extend Job interface:
+      - discoveryMetadata: { keyword, pattern, location, query }
+      - pageIntelligence: { title, company, patterns }
+      - emailEvidence: { email, source, context, pattern }[]
+      - audit: { createdAt, crawledAt, completedAt }
+    
+    ✓ Backward compatible (all new fields optional)
+  
+  Impact: LOW (additive)
+
+
+[MODIFY 4] lib/extraction/engine.ts (20-30 lines)
+  Changes:
+    ✓ extractEmails() return enhanced result
+      - Include page title in result
+      - Include email sources/context
+      - Pass to pattern detector
+    
+    ✓ Track where each email came from
+      - Pattern that matched it
+      - Context text around it
+  
+  Impact: LOW (enhancing existing function)
+
+
+[MODIFY 5] lib/worker/worker.ts (15-20 lines)
+  Changes:
+    ✓ When processing job:
+      - Call pattern detector on page HTML
+      - Call company intelligence extractor
+      - Store detection results in job
+      - Update job with evidence
+    
+    ✓ Link discovery metadata through
+      - Metadata flows from search → queue → worker
+  
+  Impact: LOW (adding calls to new functions)
+
+
+[MODIFY 6] lib/extraction/deobfuscate.ts (10-15 lines)
+  Changes:
+    ✓ Return pattern used to find each email
+    ✓ Return context around email
+    ✓ Link to page element/section
+  
+  Impact: MINIMAL (returning more info)
+
+
+───────────────────────────────────────────────────────────────────────────────
+4. DATA MODEL CHANGES
+───────────────────────────────────────────────────────────────────────────────
+
+OLD Job Type:
+  {
+    id, url, status, emails,
+    query?, source?
+  }
+
+NEW Job Type (Backward Compatible):
+  {
+    id, url, status, emails,              // Original
+    
+    discoveryMetadata: {                  // NEW - intelligence
+      searchKeyword, matchedPattern,
+      searchLocation, searchQuery,
+      discoveryReason
+    },
+    
+    pageIntelligence: {                   // NEW - analysis
+      title, companyName,
+      patterns: { isContactPage, isAbout... },
+      evidence: { foundPatterns[] }
+    },
+    
+    emailEvidence: {                      // NEW - sources
+      email, sourceUrl, pattern,
+      context, confidence
+    }[],
+    
+    audit: {                              // NEW - timeline
+      createdAt, crawledAt, completedAt
+    }
+  }
+
+All old fields still present ✓
+New fields optional ✓
+No breaking changes ✓
+
+───────────────────────────────────────────────────────────────────────────────
+5. API REQUEST FORMAT
+───────────────────────────────────────────────────────────────────────────────
+
+SIMPLE MODE (OLD - Still Works):
+  POST /api/search
+  {
+    "query": "hedge funds manhattan",
+    "pages": 2
+  }
+
+ADVANCED MODE (NEW - Complete):
+  POST /api/search
+  {
+    "keywords": ["hedge fund manager", "asset management"],
+    "patterns": ["@company.com", "@startup.co"],
+    "location": "Manhattan, New York",
+    
+    "industry": "finance",                       // Optional
+    "cseId": "google_cse_123",                   // Optional
+    "searchDepth": 2,                            // Optional (1-5)
+    "delayMs": 300,                              // Optional (100-2000)
+    "deepSearch": true,                          // Optional
+    "capturePageContent": true,                  // Optional
+    "detectPatterns": ["contact", "about"]       // Optional
+  }
+
+ALL backward compatible ✓
+
+───────────────────────────────────────────────────────────────────────────────
+6. API RESPONSE FORMAT
+───────────────────────────────────────────────────────────────────────────────
+
+SIMPLE MODE (UNCHANGED):
+  {
+    "searchId": "search_abc123",
+    "totalQueued": 15,
+    "jobIds": ["job_1", "job_2", ...]
+  }
+
+ADVANCED MODE (ENHANCED WITH INTELLIGENCE):
+  {
+    "searchId": "search_abc123",
+    "totalQueued": 28,
+    "jobIds": ["job_1", "job_2", ...],
+    
+    "discoveryIntelligence": {
+      
+      "totalBusinessesDiscovered": 20,
+      "totalEmailsExtracted": 42,
+      "averageConfidence": 0.91,
+      
+      "byKeyword": {
+        "hedge fund manager": {
+          "jobsCreated": 15,
+          "jobIds": [...],
+          "businessesFound": 10,
+          "emailsExtracted": 22,
+          "averageConfidence": 0.93
+        },
+        "asset management": {
+          "jobsCreated": 13,
+          "jobIds": [...],
+          "businessesFound": 10,
+          "emailsExtracted": 20,
+          "averageConfidence": 0.89
+        }
+      },
+      
+      "byPattern": {
+        "@company.com": { "matchCount": 8 },
+        "@startup.co": { "matchCount": 4 }
+      },
+      
+      "byLocation": {
+        "Manhattan": { "jobCount": 20 },
+        "New York": { "jobCount": 8 }
+      }
+    }
+  }
+
+Old clients ignore unknown fields ✓
+
+───────────────────────────────────────────────────────────────────────────────
+7. IMPLEMENTATION STEPS
+───────────────────────────────────────────────────────────────────────────────
+
+PHASE 2A: FOUNDATION (2 hours)
+  Step 1: Create new type definitions
+    □ Extend Job interface in lib/queue/types.ts
+    □ New search context interface
+    □ Discovery metadata types
+    □ Evidence types
+  
+  Step 2: Create query generator
+    □ generateSearchQueries() function
+    □ Test with various keywords/locations
+    □ Verify query variations
+  
+  Step 3: Create evidence tracker
+    □ trackDiscovery() function
+    □ Confidence scoring
+    □ Reason generation
+
+PHASE 2B: INTELLIGENCE MODULES (2 hours)
+  Step 4: Create pattern detector
+    □ detectPatterns() function
+    □ Contact page detection
+    □ About/team page detection
+    □ Confidence scoring per pattern
+  
+  Step 5: Create company intelligence
+    □ extractCompanyIntelligence() function
+    □ Company name detection
+    □ Email source linking
+    □ Confidence calculation
+
+PHASE 2C: BACKEND INTEGRATION (1.5 hours)
+  Step 6: Modify route handler
+    □ Extract new request fields
+    □ Auto-detect mode
+    □ Pass metadata through
+    □ Format response with intelligence
+  
+  Step 7: Modify search service
+    □ Add performAdvancedDiscoverySearch()
+    □ Query loop with delays
+    □ Metadata tracking
+    □ Result grouping
+  
+  Step 8: Integrate extraction pipeline
+    □ Modify extraction engine
+    □ Call pattern detector
+    □ Call company intelligence
+    □ Store evidence
+
+PHASE 2D: TESTING (1.5 hours)
+  Step 9: Regression testing
+    □ Simple mode works unchanged
+    □ Response format still valid
+    □ Backward compatibility verified
+  
+  Step 10: Functional testing
+    □ Query generation works
+    □ Advanced search executes
+    □ Evidence tracked correctly
+    □ Pattern detection accurate
+    □ Company intelligence extracted
+  
+  Step 11: Integration testing
+    □ End-to-end flow
+    □ Metadata flows through
+    □ Results grouped correctly
+    □ No data loss
+  
+  Step 12: Edge cases
+    □ Empty results handling
+    □ Error recovery
+    □ Timeout handling
+    □ Large searches
+
+TOTAL TIME: 6.5 hours implementation + 1.5 hours testing = 8 hours
+
+───────────────────────────────────────────────────────────────────────────────
+8. QUOTA & PERFORMANCE STRATEGY
+───────────────────────────────────────────────────────────────────────────────
+
+QUERY MULTIPLICATION PROTECTION:
+  
+  Calculation:
+    - 5 keywords × 2 pages = 10 Google searches
+    - With pattern searches: 15 total searches
+    - With 300ms delay: ~4.5 seconds total
+    - Quota impact: ~150 API units
+  
+  Protection:
+    ✓ Pre-calculate before executing
+    ✓ Show user: "Will create ~28 jobs"
+    ✓ Require confirmation for >200 jobs
+    ✓ Allow configurable delays (default 200ms)
+    ✓ Continue if a keyword fails (error recovery)
+
+PAGE CRAWLING PROTECTION:
+  ✓ Existing max 3 concurrent Puppeteer instances
+  ✓ 20 second timeout per page
+  ✓ Rate limiting between jobs (200ms default)
+  ✓ Fallback to jsdom if needed
+
+RATE LIMITING:
+  ✓ User-based rate limits (free/pro/enterprise)
+  ✓ Per-search rate limiting (configurable delay)
+  ✓ Queue backpressure (max 1000 jobs)
+
+───────────────────────────────────────────────────────────────────────────────
+9. BACKWARD COMPATIBILITY GUARANTEE
+───────────────────────────────────────────────────────────────────────────────
+
+100% BACKWARD COMPATIBLE ✓
+
+Old API calls work:
+  { "query": "search", "pages": 2 } → Works unchanged
+
+New fields optional:
+  { "keywords": [...] } → All defaults applied
+
+Response extended:
+  - Old response format: UNCHANGED
+  - New response fields: OPTIONAL (old clients ignore)
+
+Job type extended:
+  - Old fields present: YES
+  - New fields added: YES (optional)
+
+Error codes unchanged:
+  - 400: Bad request
+  - 403: Quota exceeded
+  - 500: Error
+  - 503: Rate limited
+
+NO BREAKING CHANGES ✓
+
+───────────────────────────────────────────────────────────────────────────────
+10. SUCCESS CRITERIA
+───────────────────────────────────────────────────────────────────────────────
+
+FUNCTIONAL:
+  □ Simple mode works (no regression)
+  □ Advanced mode generates queries
+  □ Evidence tracked for each result
+  □ Patterns detected accurately
+  □ Company info extracted
+  □ Confidence scores calculated
+  □ Results grouped correctly
+  □ No data loss
+
+QUALITY:
+  □ 0 TypeScript errors
+  □ Build succeeds
+  □ 100% backward compatible
+  □ All errors handled
+  □ Comprehensive logging
+  □ Performance acceptable
+
+TESTING:
+  □ Unit: Query generation, pattern detection
+  □ Integration: Full advanced search
+  □ Quota: Doesn't exceed limits
+  □ Edge cases: Errors, timeouts, empty
+  □ Regression: Simple mode still works
+
+───────────────────────────────────────────────────────────────────────────────
+11. IMPLEMENTATION SUMMARY
+───────────────────────────────────────────────────────────────────────────────
+
+NEW CODE: ~600-800 lines
+  - Query generator: 150-200 lines
+  - Evidence tracker: 100-150 lines
+  - Pattern detector: 150-200 lines
+  - Company intelligence: 100-150 lines
+
+MODIFIED CODE: ~150-200 lines
+  - Route handler: 30-40 lines
+  - Search service: 80-100 lines
+  - Queue types: 40-50 lines
+  - Extraction/worker: 20-30 lines
+
+TOTAL: ~800-1000 lines
+
+COMPLEXITY: MEDIUM
+  - Straightforward logic
+  - Well-isolated
+  - Good error handling
+  - Backward compatible
+
+RISK: LOW
+  - No breaking changes
+  - Additive only
+  - Well-tested existing code
+  - Error recovery in place
+
+TIME: 6-8 hours
+
+───────────────────────────────────────────────────────────────────────────────
+12. READY FOR IMPLEMENTATION?
+───────────────────────────────────────────────────────────────────────────────
+
+YES ✓
+
+Complete Architecture Designed:
+  ✓ Query generation logic
+  ✓ Evidence tracking
+  ✓ Pattern detection
+  ✓ Company intelligence extraction
+  ✓ Data model extensions
+  ✓ API request/response formats
+  ✓ Quota protection
+  ✓ Backward compatibility
+  ✓ Error handling
+  ✓ Implementation steps
+
+APPROVAL CHECKLIST:
+  □ Approve query generation approach?
+  □ Approve pattern detection implementation?
+  □ Approve evidence tracking methodology?
+  □ Approve data model extensions?
+  □ Approve API changes?
+  □ Approve quota protection?
+  □ Ready to proceed with implementation?
+
+═════════════════════════════════════════════════════════════════════════════
+NEXT ACTION: Await approval to begin Phase 2 implementation
+
+Once approved, all changes will be made systematically without breaking
+existing functionality. Complete business discovery engine coming soon.
+═════════════════════════════════════════════════════════════════════════════
