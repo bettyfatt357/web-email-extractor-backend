@@ -2,11 +2,15 @@ import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
+function getSupabaseConfig() {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('Missing Supabase server environment variables')
+  if (!supabaseUrl || !supabaseAnonKey) {
+    throw new Error('Supabase is not configured. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY to enable authentication.')
+  }
+
+  return { supabaseUrl, supabaseAnonKey }
 }
 
 /**
@@ -39,6 +43,7 @@ if (!supabaseUrl || !supabaseAnonKey) {
  */
 export async function createSupabaseServerClient() {
   const cookieStore = await cookies()
+  const { supabaseUrl, supabaseAnonKey } = getSupabaseConfig()
 
   return createServerClient(supabaseUrl, supabaseAnonKey, {
     cookies: {
@@ -64,6 +69,7 @@ export async function createSupabaseServerClient() {
  * Handles request/response cookie management
  */
 export function createSupabaseMiddlewareClient(request: NextRequest) {
+  const { supabaseUrl, supabaseAnonKey } = getSupabaseConfig()
   let response = NextResponse.next({
     request: {
       headers: request.headers,

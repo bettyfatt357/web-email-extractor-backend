@@ -36,6 +36,12 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next()
   }
 
+  // Supabase is optional in local previews. Avoid importing or invoking the
+  // auth client until the project has been configured with its public keys.
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+    return NextResponse.next()
+  }
+
   try {
     // Refresh session and get response with updated cookies (handles cookie sync)
     const { session, response } = await refreshServerSession(request)
